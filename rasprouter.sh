@@ -30,3 +30,31 @@ function update_iptable_rules(){
     chmod +x $preup_clash
     unset iptables_clash preup_clash
 }
+
+function download_clash(){
+    if [ ! -z $(uname -m |grep 'armv') ]; then
+        echo "Downloading clash..."
+        arc_info=$(uname -m |sed 's/ *l.*$//g')
+        clash_version=$(curl --silent "https://api.github.com/repos/Dreamacro/clash/releases/latest"|grep '"tag_name"' |sed -E 's/.*"([^"]+)".*/\1/')
+        clash_download_url="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${arc_info}-${clash_version}.gz"
+        cd /tmp
+        wget $clash_download_url
+        gzip -d clash-linux-${arc_info}-${clash_version}.gz
+        cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
+
+        echo "Downloading clash configuration files like Country.mmdb, ui(yacd), config.yaml..."
+        # Download Country.mmdb
+        wget https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb
+        mv Country.mmdb $CLASH_CONFIG_PATH/
+        # Download ui(yacd)
+        wget https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.xz
+        tar -Jxf yacd.tar.xz
+        rm yacd.tar.xz
+        mv public $CLASH_CONFIG_PATH/ui
+        # Download config.yaml
+        wget https://raw.githubusercontent.com/erheisw/rasprouter/config.yaml
+        mv config.yaml $CLASH_CONFIG_PATH/
+        unset arc_info clash_version clash_download_url
+        cd -
+    fi
+}
