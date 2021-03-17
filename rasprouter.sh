@@ -58,3 +58,33 @@ function download_clash(){
         cd -
     fi
 }
+
+function add_clash_system_service(){
+    echo "Creating system service for clash..."
+    if [ -z $(systemctl -a |grep clash.service) ]; then
+        # Generating the systemd configuration file of clash
+        clash_service=/etc/systemd/system/clash.service
+        if [ ! -f $clash_service]; then
+            touch $clash_service
+            echo "[Unit]
+            Description=Clash daemon, A rule-based proxy in Go.
+            After=network.target
+            
+            [Service]
+            Type=simple
+            Restart=always
+            ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
+            
+            [Install]
+            WantedBy=multi-user.target" |tee $clash_service>/dev/null
+            systemctl enable clash
+        fi
+        unset clash_service
+    fi
+}
+
+function restart_clash(){
+    systemctl stop clash
+    systemctl start clash
+    systemctl status clash
+}
