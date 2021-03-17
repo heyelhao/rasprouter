@@ -31,6 +31,18 @@ function update_iptable_rules(){
     unset iptables_clash preup_clash
 }
 
+function get_file_sha256(){
+    sha256 $1 |head -c 64
+}
+
+function is_newer(){
+    if [ ! -f $2 ]; then
+        RETURN 0
+    else
+       [ get_file_sha256 $1 != get_file_sha256 $2 ]
+    fi
+}
+
 function download_clash(){
     if [ ! -z $(uname -m |grep 'armv') ]; then
         echo "Downloading clash..."
@@ -40,20 +52,31 @@ function download_clash(){
         cd /tmp
         wget $clash_download_url
         gzip -d clash-linux-${arc_info}-${clash_version}.gz
-        cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
-
-        echo "Downloading clash configuration files like Country.mmdb, ui(yacd), config.yaml..."
+        if [ is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash ]; then
+            cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
+        fi
+        echo "Downloading clash configuration files like Country.mmdb, ui(yacd)..."
+        if [ ! -d $CLASH_CONFIG_PATH ];then
+            mkdir $CLASH_CONFIG_PATH
+        fi
         # Download Country.mmdb
         wget https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb
-        mv Country.mmdb $CLASH_CONFIG_PATH/
+        if [ is_newer ./Country.mmdb $CLASH_CONFIG_PATH/Country.mmdb ]; then
+            mv Country.mmdb $CLASH_CONFIG_PATH/
+        fi
         # Download ui(yacd)
         wget https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.xz
-        tar -Jxf yacd.tar.xz
-        rm yacd.tar.xz
-        mv public $CLASH_CONFIG_PATH/ui
-        # Download config.yaml
-        wget https://raw.githubusercontent.com/erheisw/rasprouter/config.yaml
-        mv config.yaml $CLASH_CONFIG_PATH/
+        if [ -f $CLASH_CONFIG_PATH/ui ]; then
+            tar -Jcf ./yacd-old.tar.xz $CLASH_CONFIG_PATH/ui
+        fi
+        if [ is_newer ./yacd.tar.xz ./yacd-old.tar.xz ];then
+            tar -Jxf yacd.tar.xz
+            mv public $CLASH_CONFIG_PATH/ui
+            rm yacd.tar.xz yacd-old.tar.xz
+        fi
+        if [ ! -f $CLASH_CONFIG_PATH/config.yaml ]; then
+            wget https://raw.githubusercontent.com/erheisw/rasprouter/config.yaml
+        fi
         unset arc_info clash_version clash_download_url
         cd -
     fi
