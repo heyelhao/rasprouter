@@ -53,7 +53,77 @@ download(){
     done
 }
 
-download_clash(){
+generate_clash_config(){
+    echo "Generating clash config.yaml..."
+    if [ ! -f $CLASH_CONFIG_PATH/config.yaml ]; then
+        touch $CLASH_CONFIG_PATH/config.yaml
+        echo 'port: 7890
+socks-port: 7891
+ redir-port: 7892
+ mixed-port: 7893
+ ipv6: false
+ allow-lan: true
+ mode: Rule
+ log-level: silent
+ external-controller: 0.0.0.0:9090
+ external-ui: ui
+ secret: ""
+ dns:
+   enable: true
+   ipv6: false
+   listen: 0.0.0.0:53
+   default-nameserver:
+     - 114.114.114.114
+   enhanced-mode: fake-ip #如果要玩netflix，需要使用fake-ip
+   fake-ip-range: 198.18.0.1/16
+   nameserver:
+     - 114.114.114.114
+     - 223.5.5.5
+     - tls://8.8.8.8:853
+   fallback:
+     - tls://8.8.8.8:853
+ tun:
+   enable: true
+   stack: system # or gvisor
+   dns-hijack:
+     - tcp://8.8.8.8:53
+
+ # 代理服务器配置
+ proxies:
+   - name: ""
+     type: #ss,vmes
+     server:
+     port:
+     cipher:
+     password: ""
+ # 配置 Group
+ proxy-groups:
+   # 自动切换
+   - name: "auto"
+     type: url-test
+     url: "http://www.gstatic.com/generate_204"
+     proxies:
+       - ""
+     interval: 300
+   # 按需选择 - 可以在UI上选择
+   - name: "Proxy"
+     type: select
+     proxies:
+       - ""
+ rules:
+   # LAN
+   - DOMAIN-SUFFIX,local,DIRECT
+   - IP-CIDR,127.0.0.0/8,DIRECT
+   - IP-CIDR,172.16.0.0/12,DIRECT
+   - IP-CIDR,192.168.0.0/16,DIRECT
+   - IP-CIDR,10.0.0.0/8,DIRECT
+   # 最终规则（除了中国区的IP之外的，全部翻墙）
+   - GEOIP,CN,DIRECT
+   - MATCH,auto' | tee $CLASH_CONFIG_PATH/config.yaml >/dev/null
+      fi
+}
+
+install_clash(){
     if [ ! -z $(uname -m |grep 'armv') ]; then
         echo "Downloading clash..."
         arc_info=$(uname -m |sed 's/ *l.*$//g')
@@ -63,11 +133,13 @@ download_clash(){
         download $clash_download_url clash-linux-${arc_info}-${clash_version}.gz
         gzip -d clash-linux-${arc_info}-${clash_version}.gz
         is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
-        if [ $? ]; then
+        if [ $? = $TRUE ]; then
             cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
             chmod +x /usr/local/bin/clash
         fi
         rm ./clash-linux-${arc_info}-${clash_version}
+        # Generating clash config.yaml
+        generate_clash_config
         echo "Downloading clash configuration files like Country.mmdb, ui(yacd)..."
         # Download Country.mmdb
         download https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb Country.mmdb
@@ -87,12 +159,6 @@ download_clash(){
             mv public $CLASH_CONFIG_PATH/ui
         fi
         rm yacd.tar.xz yacd-old.tar.xz
-
-        # download https://raw.githubusercontent.com/erheisw/rasprouter/config.yaml config.yaml
-        # if [ ! -f $CLASH_CONFIG_PATH/config.yaml ]; then
-        #     mv config.yaml $/CLASH_CONFIG_PATH/config.yaml
-        # fi
-        # rm config.yaml
         unset arc_info clash_version clash_download_url
         cd -
     fi
@@ -106,18 +172,18 @@ add_clash_system_service(){
         if [ ! -f $clash_service ]; then
             touch $clash_service
             echo "[Unit]
-            Description=Clash daemon, A rule-based proxy in Go.
-            After=network.target
-            
-            [Service]
-            Type=simple
-            Restart=always
-            ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
-            
-            [Install]
-            WantedBy=multi-user.target" |tee $clash_service>/dev/null
-            systemctl enable clash
+ Description=Clash daemon, A rule-based proxy in Go.
+ After=network.target
+ 
+ [Service]
+ Type=simple
+ Restart=always
+ ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
+ 
+ [Install]
+ WantedBy=multi-user.target" |tee $clash_service>/dev/null
         fi
+        systemctl enable clash
         unset clash_service
     fi
 }
@@ -146,11 +212,12 @@ install_dhcp_server(){
             cat ./dhcpd.conf.bak |sed 's/^#.*//g' |sed '/^$/d' > ./dhcpd.conf
             sed -i "1s/example.org/home/g" ./dhcpd.conf
             sed -i "2s/.*/option domain-name-servers ${static_ip};/g" ./dhcpd.conf
-            echo 'subnet ${subnet_ip} netmask ${netmask} {
-                range ${ip_range};
-                option routers ${static_ip};
-                option broadcast-address ${broadcast_ip};
-                }' | tee -a ./dhcpd.conf>/dev/null
+            echo "authoritative;
+subnet ${subnet_ip} netmask ${netmask} {
+  range ${ip_range};
+  option routers ${static_ip};
+  option broadcast-address ${broadcast_ip};
+}" | tee -a ./dhcpd.conf>/dev/null
         fi
         cd -
         cd -
@@ -161,7 +228,7 @@ main(){
     if [ ! -d $CLASH_CONFIG_PATH ];then
         mkdir $CLASH_CONFIG_PATH
     fi
-    download_clash
+    install_clash
     add_clash_system_service
     install_dhcp_server
     update_iptable_rules
