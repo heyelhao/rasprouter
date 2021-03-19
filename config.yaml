@@ -32,11 +32,11 @@ tun:
 
 # 代理服务器配置
 proxies:
-  - name: "jms-s1"
-    type: ss
+  - name: ""
+    type: 
     server: 
-    port: 12345
-    cipher: aes-256-gcm
+    port: 
+    cipher: 
     password: ""
 # 配置 Group
 proxy-groups:
@@ -45,13 +45,13 @@ proxy-groups:
     type: url-test
     url: "http://www.gstatic.com/generate_204"
     proxies:
-      - "jms-s1"
+      - ""
     interval: 300
   # 按需选择 - 可以在UI上选择
   - name: "Proxy"
     type: select
     proxies:
-      - "jms-s1"
+      - ""
 rules:
   # LAN
   - DOMAIN-SUFFIX,local,DIRECT
