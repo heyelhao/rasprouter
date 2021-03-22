@@ -5,6 +5,7 @@
 TRUE=0
 FALSE=1
 CLASH_CONFIG_PATH="/etc/clash"
+UPDATED=1
 is_newer(){
     if [ ! -f $2 ]; then
         return 0
@@ -31,13 +32,15 @@ check_clash_version(){
     gzip -d clash-linux-${arc_info}-${clash_version}.gz
     is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
     if [ $? = $TRUE ]; then
+        $UPDATED=0
+        echo "Updating Clash to the new version..."
         mv /usr/local/bin/clash ./clash-old
         cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
         chmod +x /usr/local/bin/clash
         rm ./clash-old
     fi
     rm ./clash-linux-${arc_info}-${clash_version}
-    unset $arc_info $clash_version $clash_download_url
+    unset arc_info clash_version clash_download_url
     cd -
 }
 
@@ -46,6 +49,8 @@ check_country_version(){
     download https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb Country.mmdb
     is_newer ./Country.mmdb $CLASH_CONFIG_PATH/Country.mmdb
     if [ $? = $TRUE ]; then
+        $UPDATED=0
+        echo "Updating Country.mmdb to the new version..."
         mv $CLASH_CONFIG_PATH/Country.mmdb ./Country-old.mmdb
         cp Country.mmdb $CLASH_CONFIG_PATH/
         rm ./Country-old.mmdb
@@ -58,8 +63,10 @@ main(){
     echo "Checking clash new version..."
     check_clash_version
     check_country_version
+    if [ $UPDATED ==$TRUE ]; then
+        service clash restart
+    fi
     echo "Checking clash new version done."
-    reboot
 }
 
 main
