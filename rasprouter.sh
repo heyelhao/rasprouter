@@ -171,6 +171,12 @@ install_dhcp_server(){
     fi
 }
 
+add_crontab(){
+    echo "Adding crontab: OS reboot at 5:30am. everyday."
+    echo "# Reboot raspbian OS at 5:30am everyday">>/etc/crontab
+    echo "30 05 * * * root /usr/sbin/shutdown -r now">>/etc/crontab
+}
+
 main(){
     if [ ! -d $CLASH_CONFIG_PATH ];then
         mkdir $CLASH_CONFIG_PATH
