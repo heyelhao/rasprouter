@@ -56,71 +56,8 @@ download(){
 generate_clash_config(){
     echo "Generating clash config.yaml..."
     if [ ! -f $CLASH_CONFIG_PATH/config.yaml ]; then
-        touch $CLASH_CONFIG_PATH/config.yaml
-        echo 'port: 7890
-socks-port: 7891
- redir-port: 7892
- mixed-port: 7893
- ipv6: false
- allow-lan: true
- mode: Rule
- log-level: silent
- external-controller: 0.0.0.0:9090
- external-ui: ui
- secret: ""
- dns:
-   enable: true
-   ipv6: false
-   listen: 0.0.0.0:53
-   default-nameserver:
-     - 114.114.114.114
-   enhanced-mode: fake-ip #如果要玩netflix，需要使用fake-ip
-   fake-ip-range: 198.18.0.1/16
-   nameserver:
-     - 114.114.114.114
-     - 223.5.5.5
-     - tls://8.8.8.8:853
-   fallback:
-     - tls://8.8.8.8:853
- tun:
-   enable: true
-   stack: system # or gvisor
-   dns-hijack:
-     - tcp://8.8.8.8:53
-
- # 代理服务器配置
- proxies:
-   - name: ""
-     type: #ss,vmes
-     server:
-     port:
-     cipher:
-     password: ""
- # 配置 Group
- proxy-groups:
-   # 自动切换
-   - name: "auto"
-     type: url-test
-     url: "http://www.gstatic.com/generate_204"
-     proxies:
-       - ""
-     interval: 300
-   # 按需选择 - 可以在UI上选择
-   - name: "Proxy"
-     type: select
-     proxies:
-       - ""
- rules:
-   # LAN
-   - DOMAIN-SUFFIX,local,DIRECT
-   - IP-CIDR,127.0.0.0/8,DIRECT
-   - IP-CIDR,172.16.0.0/12,DIRECT
-   - IP-CIDR,192.168.0.0/16,DIRECT
-   - IP-CIDR,10.0.0.0/8,DIRECT
-   # 最终规则（除了中国区的IP之外的，全部翻墙）
-   - GEOIP,CN,DIRECT
-   - MATCH,auto' | tee $CLASH_CONFIG_PATH/config.yaml >/dev/null
-      fi
+        cp ./config.yaml $CLASH_CONFIG_PATH/
+    fi
 }
 
 install_clash(){
@@ -154,7 +91,7 @@ install_clash(){
             tar -Jcf ./yacd-old.tar.xz $CLASH_CONFIG_PATH/ui
         fi
         is_newer ./yacd.tar.xz ./yacd-old.tar.xz
-        if [ $? = $TURE ];then
+        if [ $? = $TRUE ]; then
             tar -Jxf yacd.tar.xz
             mv public $CLASH_CONFIG_PATH/ui
         fi
@@ -171,17 +108,16 @@ add_clash_system_service(){
         clash_service=/etc/systemd/system/clash.service
         if [ ! -f $clash_service ]; then
             touch $clash_service
-            echo "[Unit]
- Description=Clash daemon, A rule-based proxy in Go.
- After=network.target
- 
- [Service]
- Type=simple
- Restart=always
- ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
- 
- [Install]
- WantedBy=multi-user.target" |tee $clash_service>/dev/null
+            echo \
+"[Unit]
+Description=Clash daemon, A rule-based proxy in Go.
+After=network.target
+[Service]
+Type=simple
+Restart=always
+ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
+[Install]
+WantedBy=multi-user.target" > $clash_service
         fi
         systemctl enable clash
         unset clash_service
@@ -192,36 +128,53 @@ install_dhcp_server(){
     echo "Downloading dhcp server..."
     if [ -z "$(systemctl -a |grep isc-dhcp-server)" ]; then
         apt-get install isc-dhcp-server -y
-        read -p "Please input ip address (eg. 192.168.1.3): " static_ip
+        read -p "Please input raspberry-pi ip address (eg. 192.168.1.3): " static_ip
         read -p "Please input router ip address (eg. 192.168.1.2): " router_ip
-        read -p "Please input subnet ip (eg. 192.168.1.0) : " subnet_ip
-        read -p "Please input netmask (eg. 255.255.255.0) : " netmask
         read -p "Please input ip range (eg. 192.168.1.4 192.168.1.254) : " ip_range
-        read -p "Please input broadcast ip (eg. 192.168.1.255) : " broadcast_ip
+        subnet_ip=$(echo ${static_ip} |cut -d '.' -f 1,2,3)".0"
         cd /etc/
         if [ ! -f ./dhcpcd.conf.bak ]; then
             cp ./dhcpcd.conf ./dhcpcd.conf.bak
-            cat ./dhcpcd.conf.bak |sed 's/^#.*//g' |sed '/^$/d' > ./dhcpcd.conf
-            echo "interface eth0
-            static ip_address=${static_ip}/24
-            static routers=${router_ip}" |tee -a ./dhcpcd.conf>/dev/null
+        else
+            cp ./dhcpcd.conf.bak ./dhcpcd.conf
         fi
+        sed -i "44,45s/#//g" ./dhcpcd.conf
+        sed -i "45s/192\.168\.0\.10/${static_ip}/g" ./dhcpcd.conf
+        sed -i "47s/#//g" ./dhcpcd.conf
+        sed -i "47s/192\.168\.0\.1/${router_ip}/g" ./dhcpcd.conf
         cd ./dhcp
         if [ ! -f ./dhcpd.conf.bak ]; then
             cp ./dhcpd.conf ./dhcpd.conf.bak
-            cat ./dhcpd.conf.bak |sed 's/^#.*//g' |sed '/^$/d' > ./dhcpd.conf
-            sed -i "1s/example.org/home/g" ./dhcpd.conf
-            sed -i "2s/.*/option domain-name-servers ${static_ip};/g" ./dhcpd.conf
-            echo "authoritative;
-subnet ${subnet_ip} netmask ${netmask} {
+        else
+            cp ./dhcpd.conf.bak ./dhcpd.conf
+        fi
+        sed -i "21s/#//g" ./dhcpd.conf
+        sed -i "8s/ns1.example.org, ns2.example.org/${static_ip}/g" ./dhcpd.conf
+        echo "subnet ${subnet_ip} netmask 255.255.255.0{
   range ${ip_range};
   option routers ${static_ip};
-  option broadcast-address ${broadcast_ip};
-}" | tee -a ./dhcpd.conf>/dev/null
+}" >> ./dhcpd.conf
+        cd -
+        cd ./default
+        if [ ! -f ./isc-dhcp-server.bak ]; then
+            cp ./isc-dhcp-server ./isc-dhcp-server.bak
+        else
+            cp ./isc-dhcp-server.bak ./isc-dhcp-server
         fi
+        sed -i "8s/#//g" ./isc-dhcp-server
+        sed -i '17s/""/"eth0"/g' ./isc-dhcp-server
         cd -
         cd -
+        unset static_ip router_ip ip_range subnet_ip
+        kill $(ps -A |grep dhcp |tr -d ' ' |cut -d '?' -f 1)
+        service isc-dhcp-server restart
     fi
+}
+
+add_crontab(){
+    echo "Adding crontab: OS reboot at 5:30am. everyday."
+    echo "# Reboot raspbian OS at 5:30am everyday">>/etc/crontab
+    echo "30 05 * * * root /usr/sbin/shutdown -r now">>/etc/crontab
 }
 
 main(){
