@@ -171,10 +171,30 @@ install_dhcp_server(){
     fi
 }
 
-add_crontab(){
+add_reboot_cron(){
     echo "Adding crontab: OS reboot at 5:30am. everyday."
     echo "# Reboot raspbian OS at 5:30am everyday">>/etc/crontab
     echo "30 05 * * * root /usr/sbin/shutdown -r now">>/etc/crontab
+}
+
+add_version_check_cron(){
+    if [ ! -f $CLASH_CONFIG_PATH/version.check.sh ]; then
+        echo "Adding crontab: Version check 5:10am. every Monday."
+        cp ./version.check.sh $CLASH_CONFIG_PATH/version.check.sh
+        chmod +x $CLASH_CONFIG_PATH/version.check.sh
+        cd /etc/cron.d
+        touch clash
+        echo "# Run the version check job at 5:10am. every Monday" > clash
+        echo "SHELL=/bin/bash" >> clash
+        echo "PATH=/sbin:/bin:/usr/sbin:/usr/bin" >> clash
+        echo "10 05 * * 1 root ${CLASH_CONFIG_PATH}/version.check.sh 2> /" >> clash
+        cd -
+    fi
+}
+
+add_crontab(){
+    add_reboot_cron
+    add_version_check_cron
 }
 
 main(){
@@ -183,8 +203,9 @@ main(){
     fi
     install_clash
     add_clash_system_service
-    install_dhcp_server
+    add_crontab
     update_iptable_rules
+    install_dhcp_server
     exit 0
 }
 

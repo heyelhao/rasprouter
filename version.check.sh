@@ -63,8 +63,9 @@ main(){
     echo "Checking clash new version..."
     check_clash_version
     check_country_version
-    if [ $UPDATED ==$TRUE ]; then
-        service clash restart
+    if [ $UPDATED = $TRUE ]; then
+        service clash stop
+        service clash start
     fi
     echo "Checking clash new version done."
 }
