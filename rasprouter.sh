@@ -66,7 +66,7 @@ install_clash(){
         arc_info=$(uname -m |sed 's/ *l.*$//g')
         clash_version=$(curl --silent "https://api.github.com/repos/Dreamacro/clash/releases/latest"|grep '"tag_name"' |sed -E 's/.*"([^"]+)".*/\1/')
         clash_download_url="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${arc_info}-${clash_version}.gz"
-        cd /tmp
+
         download $clash_download_url clash-linux-${arc_info}-${clash_version}.gz
         gzip -d clash-linux-${arc_info}-${clash_version}.gz
         is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
@@ -97,7 +97,6 @@ install_clash(){
         fi
         rm yacd.tar.xz yacd-old.tar.xz
         unset arc_info clash_version clash_download_url
-        cd -
     fi
 }
 
@@ -187,7 +186,7 @@ add_version_check_cron(){
         echo "# Run the version check job at 5:10am. every Monday" > clash
         echo "SHELL=/bin/bash" >> clash
         echo "PATH=/sbin:/bin:/usr/sbin:/usr/bin" >> clash
-        echo "10 05 * * 1 root ${CLASH_CONFIG_PATH}/version.check.sh 2> /" >> clash
+        echo "10 05 * * 1 root ${CLASH_CONFIG_PATH}/version.check.sh 2> /dev/null" >> clash
         cd -
     fi
 }
