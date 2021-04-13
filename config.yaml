@@ -6,9 +6,6 @@ ipv6: false
 allow-lan: true
 mode: Rule
 log-level: silent
-external-controller: 0.0.0.0:9090
-external-ui: ui
-secret: ""
 dns:
   enable: true
   ipv6: false
@@ -24,12 +21,6 @@ dns:
     - tls://8.8.8.8:853
   fallback:
     - tls://8.8.8.8:853
-tun:
-  enable: true
-  stack: system # or gvisor
-  dns-hijack:
-    - tcp://8.8.8.8:53
-
 # 代理服务器配置
 proxies:
   - name: ""
@@ -59,6 +50,16 @@ rules:
   - IP-CIDR,172.16.0.0/12,DIRECT
   - IP-CIDR,192.168.0.0/16,DIRECT
   - IP-CIDR,10.0.0.0/8,DIRECT
+   # Netflix
+  - DOMAIN-SUFFIX,fast.com,auto
+  - DOMAIN-SUFFIX,api-global.netflix.com,auto
+  - DOMAIN-SUFFIX,netflix.com,auto
+  - DOMAIN-SUFFIX,netflix.net,auto
+  - DOMAIN-SUFFIX,nflxext.com,auto
+  - DOMAIN-SUFFIX,nflximg.com,auto
+  - DOMAIN-SUFFIX,nflximg.net,auto
+  - DOMAIN-SUFFIX,nflxso.net,auto
+  - DOMAIN-SUFFIX,nflxvideo.net,auto
   # 最终规则（除了中国区的IP之外的，全部翻墙）
   - GEOIP,CN,DIRECT
   - MATCH,auto

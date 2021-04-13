@@ -26,22 +26,25 @@ download(){
 check_clash_version(){
     arc_info=$(uname -m |sed 's/ *l.*$//g')
     clash_version=$(curl --silent "https://api.github.com/repos/Dreamacro/clash/releases/latest"|grep '"tag_name"' |sed -E 's/.*"([^"]+)".*/\1/')
-    clash_download_url="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${arc_info}-${clash_version}.gz"
-    cd /tmp
-    download $clash_download_url clash-linux-${arc_info}-${clash_version}.gz
-    gzip -d clash-linux-${arc_info}-${clash_version}.gz
-    is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
-    if [ $? = $TRUE ]; then
-        $UPDATED=0
-        echo "Updating Clash to the new version..."
-        mv /usr/local/bin/clash ./clash-old
-        cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
-        chmod +x /usr/local/bin/clash
-        rm ./clash-old
+    old_version=$(clash -v |cut -d ' ' -f2)
+    if [ ${clash_version}!=${old_version} ];then
+        clash_download_url="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${arc_info}-${clash_version}.gz"
+        cd /tmp
+        download $clash_download_url clash-linux-${arc_info}-${clash_version}.gz
+        gzip -d clash-linux-${arc_info}-${clash_version}.gz
+        is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
+        if [ $? = $TRUE ]; then
+            $UPDATED=0
+            echo "Updating Clash to the new version..."
+            mv /usr/local/bin/clash ./clash-old
+            cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
+            chmod +x /usr/local/bin/clash
+            rm ./clash-old
+        fi
+        rm ./clash-linux-${arc_info}-${clash_version}
+        unset arc_info clash_version clash_download_url
+        cd -
     fi
-    rm ./clash-linux-${arc_info}-${clash_version}
-    unset arc_info clash_version clash_download_url
-    cd -
 }
 
 check_country_version(){
