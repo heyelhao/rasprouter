@@ -123,53 +123,6 @@ WantedBy=multi-user.target" > $clash_service
     fi
 }
 
-install_dhcp_server(){
-    echo "Downloading dhcp server..."
-    if [ -z "$(systemctl -a |grep isc-dhcp-server)" ]; then
-        apt-get install isc-dhcp-server -y
-        read -p "Please input raspberry-pi ip address (eg. 192.168.1.3): " static_ip
-        read -p "Please input router ip address (eg. 192.168.1.2): " router_ip
-        read -p "Please input ip range (eg. 192.168.1.4 192.168.1.254) : " ip_range
-        subnet_ip=$(echo ${static_ip} |cut -d '.' -f 1,2,3)".0"
-        cd /etc/
-        if [ ! -f ./dhcpcd.conf.bak ]; then
-            cp ./dhcpcd.conf ./dhcpcd.conf.bak
-        else
-            cp ./dhcpcd.conf.bak ./dhcpcd.conf
-        fi
-        sed -i "44,45s/#//g" ./dhcpcd.conf
-        sed -i "45s/192\.168\.0\.10/${static_ip}/g" ./dhcpcd.conf
-        sed -i "47s/#//g" ./dhcpcd.conf
-        sed -i "47s/192\.168\.0\.1/${router_ip}/g" ./dhcpcd.conf
-        cd ./dhcp
-        if [ ! -f ./dhcpd.conf.bak ]; then
-            cp ./dhcpd.conf ./dhcpd.conf.bak
-        else
-            cp ./dhcpd.conf.bak ./dhcpd.conf
-        fi
-        sed -i "21s/#//g" ./dhcpd.conf
-        sed -i "8s/ns1.example.org, ns2.example.org/${static_ip}/g" ./dhcpd.conf
-        echo "subnet ${subnet_ip} netmask 255.255.255.0{
-  range ${ip_range};
-  option routers ${static_ip};
-}" >> ./dhcpd.conf
-        cd -
-        cd ./default
-        if [ ! -f ./isc-dhcp-server.bak ]; then
-            cp ./isc-dhcp-server ./isc-dhcp-server.bak
-        else
-            cp ./isc-dhcp-server.bak ./isc-dhcp-server
-        fi
-        sed -i "8s/#//g" ./isc-dhcp-server
-        sed -i '17s/""/"eth0"/g' ./isc-dhcp-server
-        cd -
-        cd -
-        unset static_ip router_ip ip_range subnet_ip
-        kill $(ps -A |grep dhcp |tr -d ' ' |cut -d '?' -f 1)
-        service isc-dhcp-server restart
-    fi
-}
-
 add_reboot_cron(){
     echo "Adding crontab: OS reboot at 5:30am. everyday."
     echo "# Reboot raspbian OS at 5:30am everyday">>/etc/crontab
@@ -204,7 +157,6 @@ main(){
     add_clash_system_service
     add_crontab
     update_iptable_rules
-    install_dhcp_server
     exit 0
 }
 

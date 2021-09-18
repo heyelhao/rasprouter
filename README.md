@@ -43,15 +43,15 @@ B. 加一个设备，做为旁路由提供代理功能
 
 2. DNS功能
 
-3. 简单的DHCP功能
-
-根据以上要求，以及搜索的网络资料，决定在运行*Raspbian*系统的树莓派上安装如下软件
+根据以上要求，以及搜索的网络资料，决定在运行*Raspbian*系统的树莓派上进行如下操作
 
 - **Clash**提供代理和DNS功能
 
-- **ISC-DHCP-Server**提供DHCP功能
+- **iptables**设置转发规则
 
-当然，除了这些还需要配置**iptables**规则，如下：
+- **DNS,Gateway**静态配置
+
+**iptables**转发规则如下：
 
 ```Shell
 iptables -t nat -N CLASH
@@ -66,7 +66,7 @@ iptables -t nat -A CLASH -p tcp -j REDIRECT --to-ports 7892
 iptables -t nat -I PREROUTING -p tcp -j CLASH
 ```
 
-关闭Wi-Fi路由器的DHCP功能，在配置好**Clash**和**DHCP**后，启动这两个服务，然后设备重新连接Wi-Fi，设备即可科学上网。
+以上操作执行成功后，启动Clash服务，然后更改路由器的默认DNS，Gateway为该树莓派的IP地址（要将树莓派的IP地址在路由器上静态绑定），最后重启路由器后所有入网设备即可科学上网。
 
 鉴于相关配置较多，所以将相关操作步骤写成了**Shell**脚本，远程登录树莓派，然后[下载](https://github.com/erheisw/rasprouter/releases)，解压并执行以下命令：
 
