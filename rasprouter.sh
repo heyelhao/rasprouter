@@ -149,6 +149,24 @@ add_crontab(){
     add_version_check_cron
 }
 
+config_router(){
+    echo "Configurating static gateway and domain name servers..."
+    read -p "Please input raspberry-pi router/gateway ip address (eg. 192.168.1.2): " router_ip
+    cd /etc/
+    if [ ! -f ./dhcpcd.conf.bak ];then
+        cp ./dhcpcd.conf ./dhcpcd.conf.bak
+    else
+        cp ./dhcpcd.conf.bak ./dhcpcd.conf
+    fi
+
+    echo "
+# eth0 static configuration
+interface eth0
+static routers=$router_ip
+static domain_name_servers=$router_ip 1.1.1.1 8.8.8.8" >> ./dhcpcd.conf
+    unset router_ip
+}
+
 main(){
     if [ ! -d $CLASH_CONFIG_PATH ];then
         mkdir $CLASH_CONFIG_PATH
@@ -157,6 +175,8 @@ main(){
     add_clash_system_service
     add_crontab
     update_iptable_rules
+    config_router
+    echo "Rasprouter is installed now."
     exit 0
 }
 
