@@ -1,48 +1,41 @@
-port: 7890
-socks-port: 7891
 redir-port: 7892
-mixed-port: 7893
 ipv6: false
 allow-lan: true
-mode: Rule
-log-level: silent
+bind-address: '*'
+mode: rule
+log-level: info
 dns:
   enable: true
   ipv6: false
   listen: 0.0.0.0:53
   default-nameserver:
     - 114.114.114.114
-  #enhanced-mode: redir-host
-  enhanced-mode: fake-ip #如果要玩netflix，需要使用fake-ip
+    - 8.8.8.8
+  enhanced-mode: fake-ip #If use Netflix，it must be fake-ip
   fake-ip-range: 198.18.0.1/16
   nameserver:
     - 114.114.114.114
-    - 223.5.5.5
-    - tls://8.8.8.8:853
-  fallback:
-    - tls://8.8.8.8:853
-# 代理服务器配置
-proxies:
-  - name: ""
-    type: 
-    server: 
-    port: 
-    cipher: 
-    password: ""
-# 配置 Group
+    - 8.8.8.8
+    - tls://dns.rubyfish.cn:853
+    - https://1.1.1.1/dns-query
+    - dhcp://en0
+# Proxy servers configuration
+proxy-providers:
+justmysocks:
+    type: file
+    path: /etc/clash/justmysocks.yaml #Absolute path
+    health-check:
+      enable: true
+      interval: 300
+      url: "http://www.gstatic.com/generate_204"
+# ProxyGroups configuration
 proxy-groups:
-  # 自动切换
   - name: "auto"
-    type: url-test
+    type: load-balance
     url: "http://www.gstatic.com/generate_204"
-    proxies:
-      - ""
     interval: 300
-  # 按需选择 - 可以在UI上选择
-  - name: "Proxy"
-    type: select
-    proxies:
-      - ""
+    use:
+      - justmysocks
 rules:
   # LAN
   - DOMAIN-SUFFIX,local,DIRECT
@@ -60,6 +53,6 @@ rules:
   - DOMAIN-SUFFIX,nflximg.net,auto
   - DOMAIN-SUFFIX,nflxso.net,auto
   - DOMAIN-SUFFIX,nflxvideo.net,auto
-  # 最终规则（除了中国区的IP之外的，全部翻墙）
+  # All ips pass through by proxy servers exclude China IPs
   - GEOIP,CN,DIRECT
   - MATCH,auto
