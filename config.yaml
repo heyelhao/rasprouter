@@ -1,0 +1,60 @@
+tproxy-port: 7893
+ipv6: false
+allow-lan: true
+bind-address: "*"
+mode: rule
+log-level: info
+external-controller: 127.0.0.1:9090
+external-ui: ui
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:7853
+  default-nameserver:
+    - 114.114.114.114
+    - 8.8.8.8
+  enhanced-mode: fake-ip #If use Netflix，it must be fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 114.114.114.114
+    - 8.8.8.8
+    - tls://dns.rubyfish.cn:853
+    - https://1.1.1.1/dns-query
+    - dhcp://en0
+# Proxy servers configuration
+proxy-providers:
+  proxy-your:
+    type: file
+    path: ./your.yaml #Absolute path
+    health-check:
+      enable: true
+      interval: 300
+      url: "http://www.gstatic.com/generate_204"
+# ProxyGroups configuration
+proxy-groups:
+  - name: "auto"
+    type: load-balance
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+    use:
+      - proxy-your
+rules:
+  # LAN
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+    # Netflix
+  - DOMAIN-SUFFIX,fast.com,auto
+  - DOMAIN-SUFFIX,api-global.netflix.com,auto
+  - DOMAIN-SUFFIX,netflix.com,auto
+  - DOMAIN-SUFFIX,netflix.net,auto
+  - DOMAIN-SUFFIX,nflxext.com,auto
+  - DOMAIN-SUFFIX,nflximg.com,auto
+  - DOMAIN-SUFFIX,nflximg.net,auto
+  - DOMAIN-SUFFIX,nflxso.net,auto
+  - DOMAIN-SUFFIX,nflxvideo.net,auto
+  # All ips pass through by proxy servers exclude China IPs
+  - GEOIP,CN,DIRECT
+  - MATCH,auto

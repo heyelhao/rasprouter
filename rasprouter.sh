@@ -8,33 +8,8 @@ export PATH
 TRUE=0
 FALSE=1
 
-CLASH_CONFIG_PATH="/etc/clash"
-
-update_iptable_rules(){
-    if [ ! -f $CLASH_CONFIG_PATH/iptables.up.rules ];then
-        echo "Updating iptable rules..."
-        iptables -t nat -N CLASH
-        iptables -t nat -A CLASH -d 10.0.0.0/8 -j RETURN
-        iptables -t nat -A CLASH -d 127.0.0.0/8 -j RETURN
-        iptables -t nat -A CLASH -d 169.254.0.0/16 -j RETURN
-        iptables -t nat -A CLASH -d 172.16.0.0/12 -j RETURN
-        iptables -t nat -A CLASH -d 192.168.0.0/16 -j RETURN
-        iptables -t nat -A CLASH -d 224.0.0.0/4 -j RETURN
-        iptables -t nat -A CLASH -d 240.0.0.0/4 -j RETURN
-        iptables -t nat -A CLASH -p tcp -j REDIRECT --to-ports 7892
-        iptables -t nat -I PREROUTING -p tcp -j CLASH
-
-        iptables_clash=$CLASH_CONFIG_PATH/iptables.up.rules
-        iptables-save > $iptables_clash
-
-        preup_clash=/etc/network/if-pre-up.d/clash
-        touch $preup_clash
-        echo "#!/bin/sh
-        /sbin/iptables-restore < $iptables_clash" |tee $preup_clash>/dev/null
-        chmod +x $preup_clash
-        unset iptables_clash preup_clash
-    fi
-}
+HOME_PATH="/home/pi"
+CONFIG_PATH="${HOME_PATH}/.config/clash"
 
 is_newer(){
     if [ ! -f $2 ]; then
@@ -53,16 +28,67 @@ download(){
     done
 }
 
-generate_clash_config(){
-    echo "Generating clash config.yaml..."
-    if [ ! -f $CLASH_CONFIG_PATH/config.yaml ]; then
-        cp ./config.yaml $CLASH_CONFIG_PATH/
+install_config(){
+    echo "Install clash config.yaml..."
+    is_newer ./config.yaml $CONFIG_PATH/config.yaml
+    if [ $? = $TRUE ]; then
+        cp ./config.yaml $CONFIG_PATH/
     fi
+    # chmod o+w $CONFIG_PATH/config.yaml
+    echo "Done."
+}
+
+install_country_database(){
+    echo "Download country.mmdb for clash..."
+    # Download Country.mmdb
+    download https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb ./Country.mmdb
+    is_newer ./Country.mmdb $CONFIG_PATH/Country.mmdb
+    if [ $? = $TRUE ]; then
+        cp Country.mmdb $CONFIG_PATH/
+    fi
+    # chmod o+w $CONFIG_PATH/Country.mmdb
+    rm ./Country.mmdb
+    echo "Done."
+}
+
+install_ui(){
+    echo "Download ui(yacd) for clash..."
+    # Download ui(yacd)
+    download https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.xz ./yacd.tar.xz
+    if [ -f $CONFIG_PATH/ui ]; then
+        tar -Jcf ./yacd-old.tar.xz $CONFIG_PATH/ui
+    fi
+    is_newer ./yacd.tar.xz ./yacd-old.tar.xz
+    if [ $? = $TRUE ]; then
+        tar -Jxf yacd.tar.xz
+        mv public $CONFIG_PATH/ui
+    fi
+    rm yacd.tar.xz yacd-old.tar.xz
+    echo "Done."
+}
+
+install_second_script(){
+    echo "Install second script about clash rules and check for updates..."
+    second_file=$CONFIG_PATH/second.sh
+    is_newer ./second.sh $second_file
+    if [ $? = $TRUE ]; then
+        cp ./second.sh $second_file
+    fi
+    # chmod o+x $CONFIG_PATH/second.sh
+    if [ ! -f /etc/network/if-pre-up.d/clash ]; then
+        cd /etc/network/if-pre-up.d/
+        touch clash
+        echo "#!/bin/bash" > ./clash
+        echo "${second_file} --rule" >> ./clash
+        cd - 
+    fi
+    echo "Done."
+    unset second_file
 }
 
 install_clash(){
     if [ ! -z $(uname -m |grep 'armv') ]; then
-        echo "Downloading clash..."
+        echo "Download clash..."
         arc_info=$(uname -m |sed 's/ *l.*$//g')
         clash_version=$(curl --silent "https://api.github.com/repos/Dreamacro/clash/releases/latest"|grep '"tag_name"' |sed -E 's/.*"([^"]+)".*/\1/')
         clash_download_url="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${arc_info}-${clash_version}.gz"
@@ -72,30 +98,10 @@ install_clash(){
         is_newer ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
         if [ $? = $TRUE ]; then
             cp ./clash-linux-${arc_info}-${clash_version} /usr/local/bin/clash
-            chmod +x /usr/local/bin/clash
+            chmod u+x /usr/local/bin/clash
         fi
         rm ./clash-linux-${arc_info}-${clash_version}
-        # Generating clash config.yaml
-        generate_clash_config
-        echo "Downloading clash configuration files like Country.mmdb, ui(yacd)..."
-        # Download Country.mmdb
-        download https://github.com/Dreamacro/maxmind-geoip/releases/latest/download/Country.mmdb Country.mmdb
-        is_newer ./Country.mmdb $CLASH_CONFIG_PATH/Country.mmdb
-        if [ $? = $TRUE ]; then
-            cp Country.mmdb $CLASH_CONFIG_PATH/
-        fi
-        rm ./Country.mmdb
-        # Download ui(yacd)
-        download https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.xz yacd.tar.xz
-        if [ -f $CLASH_CONFIG_PATH/ui ]; then
-            tar -Jcf ./yacd-old.tar.xz $CLASH_CONFIG_PATH/ui
-        fi
-        is_newer ./yacd.tar.xz ./yacd-old.tar.xz
-        if [ $? = $TRUE ]; then
-            tar -Jxf yacd.tar.xz
-            mv public $CLASH_CONFIG_PATH/ui
-        fi
-        rm yacd.tar.xz yacd-old.tar.xz
+        echo "Done."
         unset arc_info clash_version clash_download_url
     fi
 }
@@ -114,7 +120,7 @@ After=network.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=$(which clash) -d ${CLASH_CONFIG_PATH}
+ExecStart=$(which clash) -d ${CONFIG_PATH}
 [Install]
 WantedBy=multi-user.target" > $clash_service
         fi
@@ -130,16 +136,16 @@ add_reboot_cron(){
 }
 
 add_version_check_cron(){
-    if [ ! -f $CLASH_CONFIG_PATH/version.check.sh ]; then
+    if [ ! -f $CONFIG_PATH/version.check.sh ]; then
         echo "Adding crontab: Version check 5:10am. every Monday."
-        cp ./version.check.sh $CLASH_CONFIG_PATH/version.check.sh
-        chmod +x $CLASH_CONFIG_PATH/version.check.sh
+        cp ./version.check.sh $CONFIG_PATH/version.check.sh
+        chmod +x $CONFIG_PATH/version.check.sh
         cd /etc/cron.d
         touch clash
         echo "# Run the version check job at 5:10am. every Monday" > clash
         echo "SHELL=/bin/bash" >> clash
         echo "PATH=/sbin:/bin:/usr/sbin:/usr/bin" >> clash
-        echo "10 05 * * 1 root ${CLASH_CONFIG_PATH}/version.check.sh 2> /dev/null" >> clash
+        echo "10 05 * * 1 root ${CONFIG_PATH}/version.check.sh 2> /dev/null" >> clash
         cd -
     fi
 }
@@ -167,15 +173,22 @@ static domain_name_servers=$router_ip 1.1.1.1 8.8.8.8" >> ./dhcpcd.conf
     unset router_ip
 }
 
+change_privileges(){
+    chgrp -R pi $HOME_PATH
+    chown -R pi $HOME_PATH
+}
+
 main(){
-    if [ ! -d $CLASH_CONFIG_PATH ];then
-        mkdir $CLASH_CONFIG_PATH
+    if [ ! -d $CONFIG_PATH ];then
+        mkdir -p $CONFIG_PATH
     fi
+    install_config
+    install_country_database
+    install_ui
+    install_second_script
+    change_privileges
+
     install_clash
-    add_clash_system_service
-    add_crontab
-    update_iptable_rules
-    config_router
     echo "Rasprouter is installed now."
     exit 0
 }
