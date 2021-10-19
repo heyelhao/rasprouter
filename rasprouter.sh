@@ -76,7 +76,7 @@ install_second_script(){
         cd /etc/network/if-pre-up.d/
         touch clash
         echo "#!/bin/bash" > ./clash
-        echo "${second_file} --rule" >> ./clash
+        echo "${second_file} rule" >> ./clash
         cd - 
     fi
     echo "Done."
@@ -103,27 +103,30 @@ install_clash(){
     fi
 }
 
-add_clash_system_service(){
-    echo "Creating system service for clash..."
+add_clash_systemd(){
+    echo "Create system service for clash..."
     if [ -z "$(systemctl -a |grep clash.service)" ]; then
-        # Generating the systemd configuration file of clash
         clash_service=/etc/systemd/system/clash.service
-        if [ ! -f $clash_service ]; then
-            touch $clash_service
-            echo \
-"[Unit]
-Description=Clash daemon, A rule-based proxy in Go.
-After=network.target
-[Service]
-Type=simple
-Restart=always
-ExecStart=$(which clash) -d ${CONFIG_PATH}
-[Install]
-WantedBy=multi-user.target" > $clash_service
+        if [ -f $clash_service ]; then
+            systemctl disable clash
+            rm $clash_service
         fi
+
+        # Generate the systemd configuration file of clash
+        touch $clash_service
+        echo "[Unit]">>$clash_service
+        echo "Description=Clash daemon, A rule-based proxy in Go.">>$clash_service
+        echo "After=network.target">>$clash_service
+        echo "[Service]">>$clash_service
+        echo "Type=simple">>$clash_service
+        echo "Restart=always">>$clash_service
+        echo "ExecStart=$(which clash) -d ${CONFIG_PATH}">>$clash_service
+        echo "[Install]">>$clash_service
+        echo "WantedBy=multi-user.target">>$clash_service
         systemctl enable clash
         unset clash_service
     fi
+    echo "Done."
 }
 
 add_reboot_cron(){
@@ -184,8 +187,9 @@ main(){
     install_ui
     install_second_script
     change_privileges
-
+    
     install_clash
+    add_clash_systemd
     echo "Rasprouter is installed now."
     exit 0
 }

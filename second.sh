@@ -76,12 +76,12 @@ update_rules(){
         "iptable")
             update_iptable_rules
             ;;
-        "")
+        "all")
             update_iproute_rules
             update_iptable_rules
             ;;
         *)
-            echo "Usage --rule ${1} {iproute|iptable|empty(all)}"
+            echo "Usage --rule ${1} {iproute|iptable|all}"
     esac
 }
 
@@ -157,13 +157,13 @@ update_clash(){
 }
 
 case ${1} in
-    "--rule")
-        update_rules ${2}
+    "rule")
+        update_rules "all"
         ;;
-    "--clash")
+    "update")
         update_clash
         ;;
     *)
-        echo "Usage ${0} {--rule|--clash)"
+        echo "Usage ${0} {rule|update|start)"
         ;;
 esac
