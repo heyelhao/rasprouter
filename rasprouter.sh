@@ -135,28 +135,31 @@ add_reboot_cron(){
     echo "30 05 * * * root /usr/sbin/shutdown -r now">>/etc/crontab
 }
 
-add_version_check_cron(){
-    if [ ! -f $CONFIG_PATH/version.check.sh ]; then
-        echo "Adding crontab: Version check 5:10am. every Monday."
-        cp ./version.check.sh $CONFIG_PATH/version.check.sh
-        chmod +x $CONFIG_PATH/version.check.sh
-        cd /etc/cron.d
-        touch clash
-        echo "# Run the version check job at 5:10am. every Monday" > clash
-        echo "SHELL=/bin/bash" >> clash
-        echo "PATH=/sbin:/bin:/usr/sbin:/usr/bin" >> clash
-        echo "10 05 * * 1 root ${CONFIG_PATH}/version.check.sh 2> /dev/null" >> clash
-        cd -
+add_updates_cron(){
+    echo "Add crontab: Check for updates about clash at 5:10am. every Monday."
+    cd /etc/cron.d
+    if [ ! -f ./clash ]; then
+        touch ./clash
+        echo "# Run the version check job at 5:10am. every Monday" > ./clash
+        echo "SHELL=/bin/bash" >> ./clash
+        echo "PATH=/sbin:/bin:/usr/sbin:/usr/bin" >> ./clash
+        echo "10 05 * * 1 root ${CONFIG_PATH}/second.sh update 2> /dev/null" >> ./clash
     fi
+    cd -
+    echo "Done."
 }
 
-add_crontab(){
-    add_reboot_cron
-    add_version_check_cron
+add_crons(){
+    add_updates_cron
 }
 
-config_router(){
-    echo "Configurating static gateway and domain name servers..."
+change_privileges(){
+    chgrp -R pi $HOME_PATH
+    chown -R pi $HOME_PATH
+}
+
+update_router(){
+    echo "Configure static gateway and domain name servers..."
     read -p "Please input raspberry-pi router/gateway ip address (eg. 192.168.1.2): " router_ip
     cd /etc/
     if [ ! -f ./dhcpcd.conf.bak ];then
@@ -165,20 +168,17 @@ config_router(){
         cp ./dhcpcd.conf.bak ./dhcpcd.conf
     fi
 
-    echo "
-# eth0 static configuration
-interface eth0
-static routers=$router_ip
-static domain_name_servers=$router_ip 1.1.1.1 8.8.8.8" >> ./dhcpcd.conf
+    echo "# eth0 static configuration" >>./dhcpcd.conf
+    echo "interface eth0" >>./dhcpcd.conf
+    echo "static routers=$router_ip" >>./dhcpcd.conf
+    echo "static domain_name_servers=$router_ip 1.1.1.1 8.8.8.8" >>./dhcpcd.conf
+    echo "Done."
+    cd -
     unset router_ip
 }
 
-change_privileges(){
-    chgrp -R pi $HOME_PATH
-    chown -R pi $HOME_PATH
-}
-
 main(){
+    echo "Install rasprouter..."
     if [ ! -d $CONFIG_PATH ];then
         mkdir -p $CONFIG_PATH
     fi
@@ -187,10 +187,12 @@ main(){
     install_ui
     install_second_script
     change_privileges
-    
+    update_router
+
     install_clash
     add_clash_systemd
-    echo "Rasprouter is installed now."
+    add_crons
+    echo "Install rasprouter done."
     exit 0
 }
 
