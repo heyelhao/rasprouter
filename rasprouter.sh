@@ -34,7 +34,6 @@ install_config(){
     if [ $? = $TRUE ]; then
         cp ./config.yaml $CONFIG_PATH/
     fi
-    # chmod o+w $CONFIG_PATH/config.yaml
     echo "Done."
 }
 
@@ -46,7 +45,6 @@ install_country_database(){
     if [ $? = $TRUE ]; then
         cp Country.mmdb $CONFIG_PATH/
     fi
-    # chmod o+w $CONFIG_PATH/Country.mmdb
     rm ./Country.mmdb
     echo "Done."
 }
@@ -74,7 +72,6 @@ install_second_script(){
     if [ $? = $TRUE ]; then
         cp ./second.sh $second_file
     fi
-    # chmod o+x $CONFIG_PATH/second.sh
     if [ ! -f /etc/network/if-pre-up.d/clash ]; then
         cd /etc/network/if-pre-up.d/
         touch clash
